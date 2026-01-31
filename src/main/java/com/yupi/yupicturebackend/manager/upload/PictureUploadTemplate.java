@@ -1,0 +1,141 @@
+package com.yupi.yupicturebackend.manager.upload;
+
+import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.date.DateUtil;
+import cn.hutool.core.io.FileUtil;
+import cn.hutool.core.util.NumberUtil;
+import cn.hutool.core.util.RandomUtil;
+import cn.hutool.http.HttpRequest;
+import com.qcloud.cos.model.PutObjectResult;
+import com.qcloud.cos.model.ciModel.persistence.CIObject;
+import com.qcloud.cos.model.ciModel.persistence.ImageInfo;
+import com.qcloud.cos.model.ciModel.persistence.ProcessResults;
+import com.yupi.yupicturebackend.config.CosClientConfig;
+import com.yupi.yupicturebackend.exception.BusinessException;
+import com.yupi.yupicturebackend.exception.ErrorCode;
+import com.yupi.yupicturebackend.manager.CosManager;
+import com.yupi.yupicturebackend.model.dto.file.UploadPictureResult;
+import lombok.extern.slf4j.Slf4j;
+
+import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
+
+import java.io.File;
+import java.util.Date;
+import java.util.List;
+
+@Slf4j
+public abstract class PictureUploadTemplate {
+
+    @Resource
+    private CosManager cosManager;
+
+    @Resource
+    private CosClientConfig cosClientConfig;
+
+    public final UploadPictureResult uploadPicture(Object inputSource, String uploadPathPrefix) {
+        // 1.校验图片
+        validPicture(inputSource);
+        // 2.图片上传地址
+        String uuid = RandomUtil.randomString(16);
+        String originFilename = getOriginFileName(inputSource);
+
+        String uploadFilename = String.format("%s_%s.%s", DateUtil.formatDate(new Date()), uuid, FileUtil.getSuffix(originFilename));
+        String uploadPath = String.format("/%s/%s", uploadPathPrefix, uploadFilename);
+
+        File file = null;
+        try {
+            // 3.创建临时文件
+            file = File.createTempFile(uploadPath, null);
+            // 处理文件来源(本地或者url）
+            processFile(inputSource, file);
+
+            // 4.上传图片到对象存储
+            PutObjectResult putObjectResult = cosManager.putPictureObject(uploadPath, file);
+            ImageInfo imageInfo = putObjectResult.getCiUploadResult().getOriginalInfo().getImageInfo(); //原图图片信息
+            ProcessResults processResults = putObjectResult.getCiUploadResult().getProcessResults(); //处理图片结果（压缩图片和缩略图）
+            List<CIObject> objectList = processResults.getObjectList();
+            if(CollUtil.isNotEmpty(objectList)){
+                cosManager.deleteObject(uploadPath);
+                CIObject compressedCiobject = objectList.get(0);
+                CIObject thumbnailCiObject = objectList.get(1);
+                // 封装压缩图片返回结果
+                return buildResult(originFilename,compressedCiobject,thumbnailCiObject);
+            }
+            // 5.封装返回结果
+            return buildResult(originFilename, file, uploadPath, imageInfo);
+        } catch (Exception e) {
+            log.error("图片上传到对象存储失败", e);
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "上传失败");
+        } finally {
+            // 6.清理临时文件
+            deleteTempFile(file);
+        }
+    }
+
+    private UploadPictureResult buildResult(String originFilename, CIObject compressedCiobject, CIObject thumbnailCiobject) {
+        UploadPictureResult uploadPictureResult = new UploadPictureResult();
+        int picWidth = compressedCiobject.getWidth();
+        int picHeight = compressedCiobject.getHeight();
+        double picScale = NumberUtil.round(picWidth * 1.0 / picHeight, 2).doubleValue();
+        uploadPictureResult.setUrl(cosClientConfig.getHost() + "/" + compressedCiobject.getKey());
+        uploadPictureResult.setPicName(FileUtil.mainName(originFilename));
+        uploadPictureResult.setPicSize(compressedCiobject.getSize().longValue());
+        uploadPictureResult.setPicWidth(picWidth);
+        uploadPictureResult.setPicHeight(picHeight);
+        uploadPictureResult.setPicScale(picScale);
+        uploadPictureResult.setPicFormat(compressedCiobject.getFormat());
+        uploadPictureResult.setThumbnailUrl(cosClientConfig.getHost() + "/" + thumbnailCiobject.getKey());
+        return uploadPictureResult;
+    }
+
+    /**
+     * 获得输入源的原始文件名
+     *
+     * @param inputSource
+     * @return
+     */
+    protected abstract String getOriginFileName(Object inputSource);
+
+    /**
+     * 校验图片
+     *
+     * @param inputSource
+     */
+    protected abstract void validPicture(Object inputSource);
+
+    /**
+     * 处理输入源并生成本地文件
+     *
+     * @param inputSource
+     * @param file
+     */
+    protected abstract void processFile(Object inputSource, File file)throws  Exception;
+
+    private UploadPictureResult buildResult(String originFilename, File file, String uploadPath, ImageInfo imageInfo) {
+        UploadPictureResult uploadPictureResult = new UploadPictureResult();
+        int picWidth = imageInfo.getWidth();
+        int picHeight = imageInfo.getHeight();
+        double picScale = NumberUtil.round(picWidth * 1.0 / picHeight, 2).doubleValue();
+        uploadPictureResult.setUrl(cosClientConfig.getHost() + "/" + uploadPath);
+        uploadPictureResult.setPicName(FileUtil.mainName(originFilename));
+        uploadPictureResult.setPicSize(FileUtil.size(file));
+        uploadPictureResult.setPicWidth(picWidth);
+        uploadPictureResult.setPicHeight(picHeight);
+        uploadPictureResult.setPicScale(picScale);
+        uploadPictureResult.setPicFormat(imageInfo.getFormat());
+        return uploadPictureResult;
+    }
+
+    private void deleteTempFile(File file) {
+        if(file == null){
+            return ;
+        }
+        boolean deleteResult = file.delete();
+        if(!deleteResult){
+            log.error("file delete error,filepath = {}", file.getAbsolutePath());
+        }
+    }
+
+
+}
