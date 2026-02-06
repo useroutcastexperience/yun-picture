@@ -2,12 +2,16 @@ package com.yupi.yupicturebackend.model.dto.picture;
 
 import com.yupi.yupicturebackend.model.entity.User;
 import lombok.Data;
-import org.springframework.beans.BeanUtils;
 
 import java.io.Serializable;
 
+/**
+ * 图片上传请求
+ *
+ * @author 程序员鱼皮 <a href="https://www.codefather.cn">编程导航原创项目</a>
+ */
 @Data
-public class PictureUploadRequest implements Serializable {
+public class PictureUploadWithUserDTO implements Serializable {
 
     /**
      * 图片 id（用于修改）
@@ -25,16 +29,14 @@ public class PictureUploadRequest implements Serializable {
     private String picName;
 
     /**
-     * 空间id
+     * 空间 id
      */
     private Long spaceId;
 
-    public PictureUploadWithUserDTO toPictureUploadWithUserDTO(User loginUser) {
-        PictureUploadWithUserDTO pictureUploadWithUserDTO = new PictureUploadWithUserDTO();
-        BeanUtils.copyProperties(this, pictureUploadWithUserDTO);
-        pictureUploadWithUserDTO.setUser(loginUser);
-        return pictureUploadWithUserDTO;
-    }
+    /**
+     * 登录的用户
+     */
+    private User user;
 
     private static final long serialVersionUID = 1L;
 }

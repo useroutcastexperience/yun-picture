@@ -41,8 +41,11 @@ public abstract class PictureUploadTemplate {
         String originFilename = getOriginFileName(inputSource);
 
         String uploadFilename = String.format("%s_%s.%s", DateUtil.formatDate(new Date()), uuid, FileUtil.getSuffix(originFilename));
+        // aliyunai扩图上传，会增加？后面的后缀，导致 无法上传
+        if(uploadFilename.contains("?")){
+            uploadFilename = uploadFilename.split("\\?")[0];
+        }
         String uploadPath = String.format("/%s/%s", uploadPathPrefix, uploadFilename);
-
         File file = null;
         try {
             // 3.创建临时文件
@@ -85,6 +88,7 @@ public abstract class PictureUploadTemplate {
         uploadPictureResult.setPicHeight(picHeight);
         uploadPictureResult.setPicScale(picScale);
         uploadPictureResult.setPicFormat(compressedCiobject.getFormat());
+        uploadPictureResult.setPicColor(cosManager.getImageAve(compressedCiobject.getKey()));
         uploadPictureResult.setThumbnailUrl(cosClientConfig.getHost() + "/" + thumbnailCiobject.getKey());
         return uploadPictureResult;
     }
@@ -124,6 +128,7 @@ public abstract class PictureUploadTemplate {
         uploadPictureResult.setPicHeight(picHeight);
         uploadPictureResult.setPicScale(picScale);
         uploadPictureResult.setPicFormat(imageInfo.getFormat());
+        uploadPictureResult.setPicColor(cosManager.getImageAve(uploadPath));
         return uploadPictureResult;
     }
 

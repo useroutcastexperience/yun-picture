@@ -3,10 +3,8 @@ package com.yupi.yupicturebackend.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.yupi.yupicturebackend.model.dto.picture.PictureQueryRequest;
-import com.yupi.yupicturebackend.model.dto.picture.PictureReviewRequest;
-import com.yupi.yupicturebackend.model.dto.picture.PictureUploadByBatchRequest;
-import com.yupi.yupicturebackend.model.dto.picture.PictureUploadRequest;
+import com.yupi.yupicturebackend.api.aliyunai.model.CreateOutPaintingTaskResponse;
+import com.yupi.yupicturebackend.model.dto.picture.*;
 import com.yupi.yupicturebackend.model.entity.Picture;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.yupi.yupicturebackend.model.entity.User;
@@ -14,6 +12,7 @@ import com.yupi.yupicturebackend.model.vo.PictureVO;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpServletRequest;
+import java.util.List;
 
 /**
  * @author 93758
@@ -87,8 +86,53 @@ public interface PictureService extends IService<Picture> {
     void fillReviewParams(Picture picture, User loginUser);
 
     /**
-     * 删除图片
+     * 异步清理图片文件
      * @param oldPicture
      */
-    public void clearPictureFile(Picture oldPicture);
+    void clearPictureFile(Picture oldPicture);
+
+    /**
+     * 检查操作权限
+     *
+     * @param loginUser
+     * @param picture
+     */
+    void checkPictureAuth(User loginUser, Picture picture);
+
+    /**
+     * 删除图片
+     *
+     * @param pictureId
+     * @param loginUser
+     */
+    void deletePicture(long pictureId, User loginUser);
+
+    /**
+     * 编辑图片
+     *
+     * @param pictureEditRequest
+     * @param loginUser
+     * @return
+     */
+    boolean editPicture(PictureEditRequest pictureEditRequest, User loginUser);
+
+    /**
+     * 根据颜色搜索图片
+     *
+     * @param spaceId
+     * @param picColor
+     * @param loginUser
+     * @return
+     */
+    List<PictureVO> searchPictureByColor(Long spaceId, String picColor, User loginUser);
+
+    /**
+     * 批量编辑图片
+     *
+     * @param pictureEditByBatchRequest
+     * @param loginUser
+     */
+    void editPictureByBatch(PictureEditByBatchRequest pictureEditByBatchRequest, User loginUser);
+
+    CreateOutPaintingTaskResponse createPictureOutPaintingTask(CreatePictureOutPaintingTaskRequest createPictureOutPaintingTaskRequest, User loginUser);
 }
