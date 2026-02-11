@@ -1,4 +1,4 @@
-package com.yupi.yupicturebackend.model.dto.picture;
+package com.yupi.yupicturebackend.model.enums;
 
 import cn.hutool.core.util.ObjUtil;
 import lombok.Getter;
